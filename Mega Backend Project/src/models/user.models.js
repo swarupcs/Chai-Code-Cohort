@@ -1,18 +1,18 @@
-import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import mongoose, { Schema } from "mongoose";
 
 const userSchema = new Schema(
   {
     avatar: {
       type: {
         url: String,
-        localpath: String,
+        localPath: String,
       },
       default: {
-        url: `https://placehold.co/600x400`,
-        localpath: "",
+        url: `https://via.placeholder.com/200x200.png`,
+        localPath: "",
       },
     },
     username: {
@@ -21,6 +21,7 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
     email: {
       type: String,
@@ -29,26 +30,26 @@ const userSchema = new Schema(
       lowercase: true,
       trim: true,
     },
-    fullname: {
+    fullName: {
       type: String,
-      required: true,
+      trim: true,
     },
     password: {
       type: String,
-      required: [true, "password is required"],
+      required: [true, "Password is required"],
     },
     isEmailVerified: {
       type: Boolean,
       default: false,
+    },
+    refreshToken: {
+      type: String,
     },
     forgotPasswordToken: {
       type: String,
     },
     forgotPasswordExpiry: {
       type: Date,
-    },
-    refreshToken: {
-      type: String,
     },
     emailVerificationToken: {
       type: String,
@@ -81,6 +82,7 @@ userSchema.methods.generateAccessToken = function () {
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY },
   );
 };
+
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
@@ -91,16 +93,23 @@ userSchema.methods.generateRefreshToken = function () {
   );
 };
 
+/**
+ * @description Method responsible for generating tokens for email verification, password reset etc.
+ */
 userSchema.methods.generateTemporaryToken = function () {
+  // This token should be client facing
+  // for example: for email verification unHashedToken should go into the user's mail
   const unHashedToken = crypto.randomBytes(20).toString("hex");
 
+  // This should stay in the DB to compare at the time of verification
   const hashedToken = crypto
     .createHash("sha256")
     .update(unHashedToken)
     .digest("hex");
-  const tokenExpiry = Date.now() + 20 * 60 * 1000; //20min
+  // This is the expiry time for the token (20 minutes)
+  const tokenExpiry = Date.now() + 20 * 60 * 1000; // 20 minutes;
 
-  return { hashedToken, unHashedToken, tokenExpiry };
+  return { unHashedToken, hashedToken, tokenExpiry };
 };
 
 export const User = mongoose.model("User", userSchema);
